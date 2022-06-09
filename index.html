@@ -8,48 +8,38 @@
     <title>Document</title>
     <script src="https://d3js.org/d3.v5.js"></script>
     <script>
-        var playInit = true;
-        function init(nowAddedDeg, selectedDeg) {
-            var rect_lst = [];
-            var width = 200;
-            var height = 100;
-            var rectNum = 11;
-            for(var i =0; i<(rectNum*2)+1 ; i++){
+        var initFirst = true;
+        var rect_lst = [];
+        var color_lst = [];
+        var width = 200;
+        var height = 100;
+        
+        var degPlus = 15;
+        var rectNum = (180/degPlus+1)+2; //4는 양 방향 외곽, 1은 왼쪽 혹은 오른쪽 180도 부분을 포함한 개수
+        var nowAddedDeg = 0;
+        var selectedDeg = 90;
+
+
+        for(var i =0; i<rectNum ; i++){ //rect_lst에 splice기기 위해초초기화
                 rect_lst.push({});
             }
-            for (var deg = nowAddedDeg; deg <= 220+nowAddedDeg; deg += 10) {
-                var realDeg = deg;
-                var dummyDeg;
-                var diff;
-                var layer;
 
-                if(deg>200){
-                    realDeg+=130
-                }
+        function init(nowAddedDeg, selectedDeg) {
+            
+            
+            //layer 설정
+            setRectList(nowAddedDeg, selectedDeg);
 
-                if(realDeg > 200)
-                    dummyDeg = realDeg-360;
-                else
-                    dummyDeg = realDeg;
-
-                if(dummyDeg>selectedDeg ){
-                    diff = Math.ceil((dummyDeg-selectedDeg)/10);
-                    layer = (rectNum-diff)*2+1;
-                }
-                else{
-                    diff = Math.floor((selectedDeg-dummyDeg)/10);
-                    layer = (rectNum-diff)*2;
-                }
-                
-                rect_lst.splice(layer, 1, {
-                    "transform": "rotate(" + realDeg + ")",
-                    "stroke": ((deg-nowAddedDeg) === selectedDeg) ? 'red' : 'blue',
-                    "layer" : layer
-                })
-            }
+            console.log(selectedDeg);
+            console.log(rect_lst);
+            //svg 초기화
             d3.select("svg").selectAll("*").remove();
-            var xPosition = (parseInt(d3.select("svg").style("width")) / 2)-300;
+
+            //최초 사각형의 x좌표와 y좌표
+            var xPosition = (parseInt(d3.select("svg").style("width")) / 2)-(width*2);
             var yPosition = ((parseInt(d3.select("svg").style("height"))/2)-(height/2));
+
+            //사각형 생성 및 회전
             d3.select("svg").selectAll("rect").data(rect_lst).enter().append("g")
                 .attr("transform", function (d) { return d.transform })
                 .attr("transform-origin", "center center")
@@ -58,41 +48,127 @@
                     .attr("y", yPosition)
                     .attr("width", width)
                     .attr("height", height)
-                    .attr("visibility", function(d){ return d['visibility']})
-                    .attr("fill", "white")
+                    .attr("fill", function(d){return d.fill;})
                     .attr("stroke", function (d) { return d['stroke'] })
                     .attr("stroke-width", "1")
-                    .text(function(d){return d.layer})
-                    .on("mouseover", function(){
-                        console.log("rectMouseOver");
-                        init(nowAddedDeg, 10);})
+                   .text(function(d){return "deg : "+d['deg']+" / realDeg : "+d.realDeg+" / layer : "+d.layer+" / dummyDeg : "+d.dummyDeg});
                 
+            //사각형 hover
+            if(initFirst == true){
+                d3.select("svg").selectAll("g").on("mouseover", function(d){ 
+                    init(nowAddedDeg, d.realDeg);
+                });
+            } 
+            else{
+                d3.select("svg").selectAll("g").
+                on("mouseout", function(d){
+                    d3.select("svg").selectAll("g").on("mouseover", function(d){
+                        init(nowAddedDeg, d.realDeg);
+                    });
+                })
+            }
+                
+            //텍스트 추가
             d3.selectAll("g").append("text")
                 .attr("x", xPosition)
                 .attr("y", yPosition+50)
-                .attr("fill", "green")
+                .attr("fill", "white")
                 .attr("font-size", "15")
                 .attr("font-family", "cursive")
                 .attr("transform", "rotate(-90)")
                 .attr("transform-origin", "center")
                 .attr("style", "transform-box : fill-box")
-                .text(function(d, i){ return "heyjude";});
+                .text(function(d, i){ return "heyjude";});        
         }
-        var nowAddedDeg = 0;
-        var selectedDeg = 90;
-        function button(){
+
+
+        function setRectList(nowAddedDeg, selectedDeg){
+            if(selectedDeg > 200)
+                selectedDeg -= 360;   
+
+            var layerLeftNum;
+            var layerRightNum;
+            layerLeftNum = Math.ceil(selectedDeg/degPlus)+1
+            layerRightNum = rectNum-layerLeftNum-1;
+              
+            //layer 설정
+            for (var deg = nowAddedDeg; deg <= 180+(degPlus*2)+nowAddedDeg; deg += degPlus) {
+                var realDeg = deg;
+                var dummyDeg;
+                var diff;
+                var layer;
+                
+                if(realDeg>180+(degPlus*1)){
+                    realDeg+=180-degPlus-(degPlus*2); //왼쪽의 각도를 빼주고 오른쪽 두번째 사각형이니까 degPlus에 2를 곱한 값을 빼줌
+                }
+                
+                if(realDeg > 180+(degPlus*1))
+                    dummyDeg = realDeg-360;
+                else
+                    dummyDeg = realDeg;
+
+                if(dummyDeg>selectedDeg ){ //select 기준 우익
+                    diff = Math.ceil(Math.abs((dummyDeg-selectedDeg)/degPlus));
+                    if(diff <= layerLeftNum) //이쪽은 우익, 즉 우익의 개수가 왼쪽의 lectNum보다 많아졌을 때(예를 들어 왼쪽이 두개고 오른쪽이 10개면 오른쪽 3개째부터) 
+                        layer = (rectNum-1)-(diff*2)+1;
+                    else{
+                        layer = (rectNum-1)-(layerLeftNum*2)-(diff-layerLeftNum); 
+                    }
+                }
+                else{ //select 기준 좌익
+                    diff = Math.floor(Math.abs((selectedDeg-dummyDeg)/degPlus));
+                    if(diff <= layerRightNum)
+                        layer = (rectNum-1)-(diff*2);
+                    else{
+                        layer = (rectNum-1)- //layer 최대값에서
+                        (layerRightNum*2)-  //*2를 해서 갔던 레이어 만큼을 제하고
+                        (diff-layerRightNum); //거기부터 1씩(layerRight와 diff의 차이만큼) 줄인다
+                    }
+                }
+                rect_lst.splice(layer, 1, {
+                    "transform": "rotate(" + realDeg + ")",
+                    "layer" : layer,
+                    "deg" : deg,
+                    "realDeg" : realDeg,
+                    "dummyDeg" : dummyDeg,
+                    "stroke" : "black",
+                    "fill" : (function(){var k = (deg-nowAddedDeg)/degPlus; if(k == 0)return "red"; else return "blue"})()
+                })
+            }
+        }
+        function setRotateSensor(){
             var interval;
-            d3.select("button").on("mouseover", function(){interval = setInterval(function(){
-                nowAddedDeg+=1;
-                if(nowAddedDeg >= 200)
-                    nowAddedDeg-=230;
+            
+            d3.select("#event1")
+            .on("mouseover", function(){interval = setInterval(function(){
+                console.log("mouseover")
+                nowAddedDeg-=1;
+                if(nowAddedDeg < -20)
+                    nowAddedDeg += (200+30);
                 init(nowAddedDeg, selectedDeg);
             }, 30)})
-            d3.select("button").on("mouseout", function(){clearInterval(interval)});
+            .on("mouseout", function(){clearInterval(interval)});
+
+            d3.select("#event2")
+            .on("mouseover", function(){interval = setInterval(function(){
+                console.log("mouseover")
+                nowAddedDeg+=1;
+                if(nowAddedDeg > 200)
+                    nowAddedDeg -= (200+30);
+                init(nowAddedDeg, selectedDeg);
+            }, 30)})
+            .on("mouseout", function(){clearInterval(interval)});
+        };
+
+        function getRandomColor() {
+            return "#" + Math.floor(Math.random() * 16777215).toString(16);
         }
+            
+        //
         window.onload = function(){
-            init(0, selectedDeg);
-            button();
+            init(0, 90);
+            initFirst = false;
+            setRotateSensor();
         };
         window.onresize = function(){
             init(nowAddedDeg, selectedDeg);
@@ -104,8 +180,17 @@
 
 <body>
     <div>
-        <svg width="100vw" height="80vh" style="border:1px solid black">
+        <svg width="100vw" height="100vh" style="border:1px solid black">
+            <defs>
+                <!-- <filter id="f1" x="0" y="0" width="200%" height="200%">
+                    <feOffset result="offOut" in="SourceAlpha" dx="20" dy="20" />
+                    <feGaussianBlur result="blurOut" in="offOut" stdDeviation="10" />
+                    <feBlend in="SourceGraphic" in2="blurOut" mode="normal" />
+                </filter> -->
+            </defs>
         </svg>
+        <div id = "event1" style = "width : 400px; height : 400px; position : absolute; left : 50px; top : 200px; border : 1px solid black;"></div>
+        <div id = "event2" style = "width : 400px; height : 400px; position : absolute; right : 50px; top : 200px; border : 1px solid black;"></div>
         <button>버튼</button>
     <div>
 <body>
